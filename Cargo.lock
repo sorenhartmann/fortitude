@@ -636,6 +636,7 @@ dependencies = [
  "anyhow",
  "insta",
  "lazy_static",
+ "log",
  "test-case",
  "topiary-core",
  "topiary-tree-sitter-facade",

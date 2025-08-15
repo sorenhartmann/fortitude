@@ -13,6 +13,7 @@ license = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 lazy_static = { workspace = true }
+log.workspace = true
 topiary-core = { workspace = true }
 topiary-tree-sitter-facade = { workspace = true }
 tree-sitter.workspace = true
