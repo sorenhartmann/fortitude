@@ -56,7 +56,7 @@ pub fn format_file(
     let indent = 2;
     let newline = "\n".as_bytes();
 
-    let mut lines: Vec<String> = get_uncontinued_lines(&file)?;
+    let mut lines: Vec<String> = get_continued_lines(&file)?;
 
     let mut format_input = lines.join("\n");
     let mut format_output = vec![];
@@ -97,7 +97,7 @@ pub fn format_file(
     Ok(())
 }
 
-fn get_uncontinued_lines(file: &PathBuf) -> Result<Vec<String>, FormatterError> {
+fn get_continued_lines(file: &PathBuf) -> Result<Vec<String>, FormatterError> {
     let input = File::open(file)?;
     let buf_input = BufReader::new(input);
 
