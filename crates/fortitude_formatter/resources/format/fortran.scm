@@ -59,6 +59,11 @@
         ) @append_indent_end
 ) 
 
+(select_case_statement
+    (case_statement
+        . "case" @append_space . (default) @append_hardline @append_indent_start
+        ) @append_indent_end
+) 
 
 
 [
