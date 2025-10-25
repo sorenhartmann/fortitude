@@ -1,14 +1,19 @@
 use std::collections::{HashMap, HashSet};
+use std::iter::once;
 use std::sync::OnceLock;
 
 use crate::ast::FortitudeNode;
 use crate::settings::Settings;
 use crate::{AstRule, FromAstNode};
+use chrono::offset;
+use itertools::Itertools;
 use log::warn;
+use rayon::iter::plumbing::UnindexedProducer;
+use rayon::{option, vec};
 use ruff_diagnostics::{Diagnostic, Edit, Fix, Violation};
 use ruff_macros::{ViolationMetadata, derive_message_formats};
-use ruff_source_file::SourceFile;
-use ruff_text_size::TextSize;
+use ruff_source_file::{LineRanges, SourceFile};
+use ruff_text_size::{TextRange, TextSize, TextSlice};
 use tree_sitter::{Node, Query, QueryCursor, StreamingIterator};
 
 /// ## What it does
@@ -28,10 +33,14 @@ pub(crate) struct UnusedSymbol {
 }
 
 // TODO: In OMP statements?
+// TODO: assignment-only for non-out variables??
+    // some way of annotating declarations as dummy-out?
+// TODO: private/public?
 // TODO: Imported types
-// TODO: type fieldsA
+// TODO: type fields
 // TODO: Parameters
 // TODO: Aliased imports
+// TODO: dummy args as unsafe fix? - e.g. interfaces no longer applies
 // TODO: Descriptions?
 // TODO: Message?
 
@@ -44,10 +53,11 @@ fn get_query() -> &'static Query {
             "
             [(subroutine) (function) (module)] @scope
 
+            ((comment) @omp_directive
+                (#match? @omp_directive \"\\![$][oO][mM][pP]\"))
+
             (variable_declaration
                 declarator: (identifier) @decl)
-
-
 
             (parameters
                 (identifier) @decl)
@@ -56,10 +66,16 @@ fn get_query() -> &'static Query {
                 (included_items
                     (identifier) @decl))
 
-            (identifier) @ident",
+            (identifier) @use
+            ",
         )
         .unwrap()
     })
+}
+
+struct Symbol {
+    name: String,
+    range: TextRange,
 }
 
 impl Violation for UnusedSymbol {
@@ -67,6 +83,122 @@ impl Violation for UnusedSymbol {
     fn message(&self) -> String {
         format!("{}", self.msg)
     }
+}
+struct ParseOutcome<T> {
+    result: T,
+    offset: usize, // Number of characters read
+}
+
+fn parse_omp_args(comment_node: &Node, src: &str) -> (Vec<Symbol>, Vec<Symbol>) {
+
+    let mut used_symbols: Vec<String> = vec![];
+    let mut declared_symbols: Vec<String> = vec![];
+
+    let range = comment_node.byte_range();
+
+    let line = &src[range.clone()];
+
+    // Skip initial [!$omp[ ]]
+    dbg!(&line.chars().enumerate().skip_while(|(i, c)| !c.is_whitespace()).collect_vec());
+    todo!()
+    // line.find()
+    // todo!();
+
+    // let Some((_, mut line)) = line.split_once(char::is_whitespace) else {
+    //     return (vec![], vec![]);
+    // };
+
+    // // I think i just have to do the parsing myself
+    // // - a bunch more work is required for fixes
+    // // - any more advanced parsing should probably be done via treesitter
+    // while let Some(ParseOutcome{result: (clause, args), offset: new_offset}) = parse_clause(line, offset) {
+    //     if matches!(clause, "private" | "shared" | "firstprivate") {
+    //         declared_symbols.extend(args);
+    //     } else {
+    //         used_symbols.extend(args);
+    //     }
+    //     offset = new_offset;
+    // }
+    // dbg!(declared_symbols);
+    // dbg!(used_symbols);
+
+    // todo!();
+}
+
+fn parse_clause(line: &str, offset: usize) -> Option<ParseOutcome<(&str, Vec<String>)>> {
+
+   let claused_line = &line[offset..];
+
+    if line.is_empty() || line.starts_with('&') {
+        return None
+    }
+
+    let clause_end = line
+        .find(|c: char| c.is_whitespace() || c == '(' || c == '&')
+        .map(|i| i - 1)
+        .unwrap_or(line.len());
+
+    let (clause, _) = line.split_at(clause_end);
+
+    let name = clause.to_lowercase();
+    todo!();
+
+    // match parse_clause_args(rest) {
+    //     None => Some(ParseOutcome {
+    //         result: (name, vec![]),
+    //         rest,
+    //     }),
+    //     Some(outcome) => Some(ParseOutcome {
+    //         result: (name, outcome.result),
+    //         offset: o
+    //     }),
+    // }
+}
+
+fn parse_clause_args(line: &'_ str) -> Option<ParseOutcome<Vec<String>>> {
+    let line = line.trim_start();
+    if !line.starts_with('(') {
+        return None;
+    }
+    todo!();
+    let mut level = 0;
+    let mut seps = vec![];
+    let mut args_end = None;
+    for (i, c) in line.chars().enumerate() {
+        match c {
+            '(' => {
+                level += 1;
+            }
+            ')' => {
+                level -= 1;
+            }
+            ',' => {
+                seps.push(i);
+            }
+            _ => {}
+        }
+        if level == 0 {
+            args_end.replace(i);
+            break;
+        }
+    }
+
+    let args_end = args_end?;
+
+    // let args = seps
+    //     .iter()
+    //     .chain(once(&args_end))
+    //     .scan(1, |i: &mut usize, &j| {
+    //         let arg = line[*i..j].trim_start().to_lowercase();
+    //         *i = j + 1;
+    //         Some(arg)
+    //     })
+    //     .collect();
+
+    // Some(ParseOutcome {
+    //     result: args,
+    //     rest: line[args_end + 1..].trim_start(),
+    // })
 }
 
 impl AstRule for UnusedSymbol {
@@ -84,6 +216,10 @@ impl AstRule for UnusedSymbol {
         let mut declarations: HashMap<String, Vec<_>> = HashMap::new();
         let mut identifiers: HashMap<String, Vec<_>> = HashMap::new();
         let mut scopes = HashSet::new();
+
+
+        // dbg!(&src_.lines());
+        // parse_omp_args(src);
 
         let query = get_query();
         let capture_names = query.capture_names();
@@ -103,18 +239,24 @@ impl AstRule for UnusedSymbol {
                                 .or_default()
                                 .push(n);
                         }
-                        "ident" => {
+                        "use" => {
                             identifiers
                                 .entry(n.to_text(src_).unwrap().to_lowercase())
                                 .or_default()
                                 .push(n);
                         }
+                        "omp_directive" => {
+                            parse_omp_args(&n, src_);
+                            dbg!(&n.to_text(src_));
+                        }
                         _ => {
-                            warn!("unexpected capture name")
+                            unreachable!("unexpected capture name")
                         }
                     }
                 })
             });
+
+        todo!();
 
         // Identify identifiers as nodes that are not declarations
         identifiers.iter_mut().for_each(|(k, v)| {
