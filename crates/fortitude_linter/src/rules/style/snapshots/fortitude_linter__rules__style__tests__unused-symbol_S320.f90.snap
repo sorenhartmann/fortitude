@@ -1,0 +1,474 @@
+---
+source: crates/fortitude_linter/src/rules/style/mod.rs
+expression: diagnostics
+---
+./resources/test/fixtures/style/S320.f90:6:16: S320 [*] Unused declaration statement
+  |
+4 | module test_unused_symbols
+5 |
+6 |   use itertools, only: reduce
+  |                ^^^^^^^^^^^^^^ S320
+7 |   use math_utils, only: square, cube, normalize, print_banner
+8 |   use kind_module, only: long, short
+  |
+
+ℹ Safe fix
+3 3 | !=========================================================
+4 4 | module test_unused_symbols
+5 5 | 
+6   |-  use itertools, only: reduce
+  6 |+  use itertools
+7 7 |   use math_utils, only: square, cube, normalize, print_banner
+8 8 |   use kind_module, only: long, short
+9 9 | 
+
+./resources/test/fixtures/style/S320.f90:7:50: S320 [*] Unused variable: 'print_banner'
+  |
+6 |   use itertools, only: reduce
+7 |   use math_utils, only: square, cube, normalize, print_banner
+  |                                                  ^^^^^^^^^^^^ S320
+8 |   use kind_module, only: long, short
+  |
+
+ℹ Safe fix
+4 4 | module test_unused_symbols
+5 5 | 
+6 6 |   use itertools, only: reduce
+7   |-  use math_utils, only: square, cube, normalize, print_banner
+  7 |+  use math_utils, only: square, cube, normalize
+8 8 |   use kind_module, only: long, short
+9 9 | 
+10 10 |   public :: g_i
+
+./resources/test/fixtures/style/S320.f90:8:32: S320 [*] Unused variable: 'short'
+   |
+ 6 |   use itertools, only: reduce
+ 7 |   use math_utils, only: square, cube, normalize, print_banner
+ 8 |   use kind_module, only: long, short
+   |                                ^^^^^ S320
+ 9 |
+10 |   public :: g_i
+   |
+
+ℹ Safe fix
+5 5 | 
+6 6 |   use itertools, only: reduce
+7 7 |   use math_utils, only: square, cube, normalize, print_banner
+8   |-  use kind_module, only: long, short
+  8 |+  use kind_module, only: long
+9 9 | 
+10 10 |   public :: g_i
+11 11 | 
+
+./resources/test/fixtures/style/S320.f90:26:5: S320 [*] Unused declaration statement
+   |
+24 |   subroutine compute_sum(a, b)
+25 |     integer, intent(in) :: a, b
+26 |     integer :: tmp
+   |     ^^^^^^^^^^^^^^ S320
+27 |     print *, "sum:", a + b
+28 |     global_usEd = globAl_used + 1
+   |
+
+ℹ Safe fix
+23 23 | 
+24 24 |   subroutine compute_sum(a, b)
+25 25 |     integer, intent(in) :: a, b
+26    |-    integer :: tmp
+27 26 |     print *, "sum:", a + b
+28 27 |     global_usEd = globAl_used + 1
+29 28 |   end subroutine compute_sum
+
+./resources/test/fixtures/style/S320.f90:38:23: S320 [*] Unused variable: 'y'
+   |
+36 |   end subroutine compute_diff
+37 |
+38 |   function add_one(x, y) result(r)
+   |                       ^ S320
+39 |     integer, intent(in) :: x, Y
+40 |     integer :: r
+   |
+
+ℹ Safe fix
+35 35 |     print *, "diff:", diff
+36 36 |   end subroutine compute_diff
+37 37 | 
+38    |-  function add_one(x, y) result(r)
+   38 |+  function add_one(x) result(r)
+39 39 |     integer, intent(in) :: x, Y
+40 40 |     integer :: r
+41 41 |     r = x + 1
+
+./resources/test/fixtures/style/S320.f90:39:31: S320 [*] Unused variable: 'Y'
+   |
+38 |   function add_one(x, y) result(r)
+39 |     integer, intent(in) :: x, Y
+   |                               ^ S320
+40 |     integer :: r
+41 |     r = x + 1
+   |
+
+ℹ Safe fix
+36 36 |   end subroutine compute_diff
+37 37 | 
+38 38 |   function add_one(x, y) result(r)
+39    |-    integer, intent(in) :: x, Y
+   39 |+    integer, intent(in) :: x
+40 40 |     integer :: r
+41 41 |     r = x + 1
+42 42 |   end function add_one
+
+./resources/test/fixtures/style/S320.f90:56:28: S320 [*] Unused declaration statement
+   |
+54 |   end function used_interface
+55 |
+56 |   function unused_interface(f) result(res)
+   |                            ^^^ S320
+57 |     implicit none
+58 |     integer :: res
+   |
+
+ℹ Safe fix
+53 53 |     print*, f(1.) ! used
+54 54 |   end function used_interface
+55 55 | 
+56    |-  function unused_interface(f) result(res)
+   56 |+  function unused_interface result(res)
+57 57 |     implicit none
+58 58 |     integer :: res
+59 59 |     interface
+
+./resources/test/fixtures/style/S320.f90:80:5: S320 [*] Unused declaration statement
+   |
+78 |     real(kind=long), intent(in) :: rate
+79 |     integer :: i
+80 |     integer :: unused_counter, def
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S320
+81 |     real :: ghi, state, unused_temp, abc
+82 |     state = 0.0
+   |
+
+ℹ Safe fix
+77 77 |     integer, intent(in) :: steps
+78 78 |     real(kind=long), intent(in) :: rate
+79 79 |     integer :: i
+80    |-    integer :: unused_counter, def
+81 80 |     real :: ghi, state, unused_temp, abc
+82 81 |     state = 0.0
+83 82 |     do i = 1, steps
+
+./resources/test/fixtures/style/S320.f90:81:13: S320 [*] Unused variable: 'ghi'
+   |
+79 |     integer :: i
+80 |     integer :: unused_counter, def
+81 |     real :: ghi, state, unused_temp, abc
+   |             ^^^ S320
+82 |     state = 0.0
+83 |     do i = 1, steps
+   |
+
+ℹ Safe fix
+78 78 |     real(kind=long), intent(in) :: rate
+79 79 |     integer :: i
+80 80 |     integer :: unused_counter, def
+81    |-    real :: ghi, state, unused_temp, abc
+   81 |+    real :: state, unused_temp, abc
+82 82 |     state = 0.0
+83 83 |     do i = 1, steps
+84 84 |       state = state + normalize(cube(rate * i), 100.0)
+
+./resources/test/fixtures/style/S320.f90:81:25: S320 [*] Unused variable: 'unused_temp'
+   |
+79 |     integer :: i
+80 |     integer :: unused_counter, def
+81 |     real :: ghi, state, unused_temp, abc
+   |                         ^^^^^^^^^^^ S320
+82 |     state = 0.0
+83 |     do i = 1, steps
+   |
+
+ℹ Safe fix
+78 78 |     real(kind=long), intent(in) :: rate
+79 79 |     integer :: i
+80 80 |     integer :: unused_counter, def
+81    |-    real :: ghi, state, unused_temp, abc
+   81 |+    real :: ghi, state, abc
+82 82 |     state = 0.0
+83 83 |     do i = 1, steps
+84 84 |       state = state + normalize(cube(rate * i), 100.0)
+
+./resources/test/fixtures/style/S320.f90:81:38: S320 [*] Unused variable: 'abc'
+   |
+79 |     integer :: i
+80 |     integer :: unused_counter, def
+81 |     real :: ghi, state, unused_temp, abc
+   |                                      ^^^ S320
+82 |     state = 0.0
+83 |     do i = 1, steps
+   |
+
+ℹ Safe fix
+78 78 |     real(kind=long), intent(in) :: rate
+79 79 |     integer :: i
+80 80 |     integer :: unused_counter, def
+81    |-    real :: ghi, state, unused_temp, abc
+   81 |+    real :: ghi, state, unused_temp
+82 82 |     state = 0.0
+83 83 |     do i = 1, steps
+84 84 |       state = state + normalize(cube(rate * i), 100.0)
+
+./resources/test/fixtures/style/S320.f90:98:18: S320 [*] Unused variable: 'b'
+    |
+ 97 |   subroutine f1
+ 98 |    integer :: a, b, c
+    |                  ^ S320
+ 99 |    print*, a
+100 |    end subroutine
+    |
+
+ℹ Safe fix
+95 95 |   end subroutine demo_math
+96 96 | 
+97 97 |   subroutine f1
+98    |-   integer :: a, b, c
+   98 |+   integer :: a, c
+99 99 |    print*, a
+100 100 |    end subroutine
+101 101 | 
+
+./resources/test/fixtures/style/S320.f90:98:21: S320 [*] Unused variable: 'c'
+    |
+ 97 |   subroutine f1
+ 98 |    integer :: a, b, c
+    |                     ^ S320
+ 99 |    print*, a
+100 |    end subroutine
+    |
+
+ℹ Safe fix
+95 95 |   end subroutine demo_math
+96 96 | 
+97 97 |   subroutine f1
+98    |-   integer :: a, b, c
+   98 |+   integer :: a, b
+99 99 |    print*, a
+100 100 |    end subroutine
+101 101 | 
+
+./resources/test/fixtures/style/S320.f90:103:15: S320 [*] Unused variable: 'a'
+    |
+102 |   subroutine f2
+103 |    integer :: a, b, c
+    |               ^ S320
+104 |    print*, b
+105 |    end subroutine
+    |
+
+ℹ Safe fix
+100 100 |    end subroutine
+101 101 | 
+102 102 |   subroutine f2
+103     |-   integer :: a, b, c
+    103 |+   integer :: b, c
+104 104 |    print*, b
+105 105 |    end subroutine
+106 106 | 
+
+./resources/test/fixtures/style/S320.f90:103:21: S320 [*] Unused variable: 'c'
+    |
+102 |   subroutine f2
+103 |    integer :: a, b, c
+    |                     ^ S320
+104 |    print*, b
+105 |    end subroutine
+    |
+
+ℹ Safe fix
+100 100 |    end subroutine
+101 101 | 
+102 102 |   subroutine f2
+103     |-   integer :: a, b, c
+    103 |+   integer :: a, b
+104 104 |    print*, b
+105 105 |    end subroutine
+106 106 | 
+
+./resources/test/fixtures/style/S320.f90:108:15: S320 [*] Unused variable: 'a'
+    |
+107 |   subroutine f3
+108 |    integer :: a, b, c
+    |               ^ S320
+109 |    print*, c
+110 |    end subroutine
+    |
+
+ℹ Safe fix
+105 105 |    end subroutine
+106 106 | 
+107 107 |   subroutine f3
+108     |-   integer :: a, b, c
+    108 |+   integer :: b, c
+109 109 |    print*, c
+110 110 |    end subroutine
+111 111 | 
+
+./resources/test/fixtures/style/S320.f90:108:18: S320 [*] Unused variable: 'b'
+    |
+107 |   subroutine f3
+108 |    integer :: a, b, c
+    |                  ^ S320
+109 |    print*, c
+110 |    end subroutine
+    |
+
+ℹ Safe fix
+105 105 |    end subroutine
+106 106 | 
+107 107 |   subroutine f3
+108     |-   integer :: a, b, c
+    108 |+   integer :: a, c
+109 109 |    print*, c
+110 110 |    end subroutine
+111 111 | 
+
+./resources/test/fixtures/style/S320.f90:113:4: S320 [*] Unused declaration statement
+    |
+112 |     subroutine g0
+113 | /    integer :: &
+114 | |       a, &
+115 | |       b, &
+116 | |       c
+    | |_______^ S320
+117 |      print*, "nothing used"
+118 |      end subroutine
+    |
+
+ℹ Safe fix
+110 110 |    end subroutine
+111 111 | 
+112 112 |   subroutine g0
+113     |-   integer :: &
+114     |-      a, &
+115     |-      b, &
+116     |-      c
+117 113 |    print*, "nothing used"
+118 114 |    end subroutine
+119 115 | 
+
+./resources/test/fixtures/style/S320.f90:123:7: S320 [*] Unused variable: 'b'
+    |
+121 |    integer :: &
+122 |       a, &
+123 |       b, &
+    |       ^ S320
+124 |       c
+125 |    print*, a
+    |
+
+ℹ Safe fix
+120 120 |   subroutine g1
+121 121 |    integer :: &
+122 122 |       a, &
+123     |-      b, &
+124 123 |       c
+125 124 |    print*, a
+126 125 |    end subroutine
+
+./resources/test/fixtures/style/S320.f90:124:7: S320 [*] Unused variable: 'c'
+    |
+122 |       a, &
+123 |       b, &
+124 |       c
+    |       ^ S320
+125 |    print*, a
+126 |    end subroutine
+    |
+
+ℹ Safe fix
+120 120 |   subroutine g1
+121 121 |    integer :: &
+122 122 |       a, &
+123     |-      b, &
+124     |-      c
+    123 |+      b
+125 124 |    print*, a
+126 125 |    end subroutine
+127 126 | 
+
+./resources/test/fixtures/style/S320.f90:130:7: S320 [*] Unused variable: 'a'
+    |
+128 |   subroutine g2
+129 |    integer :: &
+130 |       a, &
+    |       ^ S320
+131 |       b, &
+132 |       c
+    |
+
+ℹ Safe fix
+127 127 | 
+128 128 |   subroutine g2
+129 129 |    integer :: &
+130     |-      a, &
+131 130 |       b, &
+132 131 |       c
+133 132 |    print*, b
+
+./resources/test/fixtures/style/S320.f90:132:7: S320 [*] Unused variable: 'c'
+    |
+130 |       a, &
+131 |       b, &
+132 |       c
+    |       ^ S320
+133 |    print*, b
+134 |    end subroutine
+    |
+
+ℹ Safe fix
+128 128 |   subroutine g2
+129 129 |    integer :: &
+130 130 |       a, &
+131     |-      b, &
+132     |-      c
+    131 |+      b
+133 132 |    print*, b
+134 133 |    end subroutine
+135 134 | 
+
+./resources/test/fixtures/style/S320.f90:138:7: S320 [*] Unused variable: 'a'
+    |
+136 |   subroutine g3
+137 |    integer :: &
+138 |       a, &
+    |       ^ S320
+139 |       b, &
+140 |       c
+    |
+
+ℹ Safe fix
+135 135 | 
+136 136 |   subroutine g3
+137 137 |    integer :: &
+138     |-      a, &
+139 138 |       b, &
+140 139 |       c
+141 140 |    print*, c
+
+./resources/test/fixtures/style/S320.f90:139:7: S320 [*] Unused variable: 'b'
+    |
+137 |    integer :: &
+138 |       a, &
+139 |       b, &
+    |       ^ S320
+140 |       c
+141 |    print*, c
+    |
+
+ℹ Safe fix
+136 136 |   subroutine g3
+137 137 |    integer :: &
+138 138 |       a, &
+139     |-      b, &
+140 139 |       c
+141 140 |    print*, c
+142 141 |    end subroutine

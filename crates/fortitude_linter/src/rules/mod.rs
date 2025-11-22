@@ -134,7 +134,6 @@ pub fn code_to_rule(category: Category, code: &str) -> Option<(RuleGroup, Rule)>
         (Style, "081") => (RuleGroup::Preview, Ast, Default, style::semicolons::SuperfluousSemicolon),
         (Style, "082") => (RuleGroup::Preview, Ast, Optional, style::semicolons::MultipleStatementsPerLine),
         (Style, "091") => (RuleGroup::Stable, Path, Default, style::file_extensions::NonStandardFileExtension),
-        // There are likely to be many whitespace rules at some point, reserve S1xx for them
         (Style, "101") => (RuleGroup::Stable, Text, Default, style::whitespace::TrailingWhitespace),
         (Style, "102") => (RuleGroup::Stable, Ast, Optional, style::whitespace::IncorrectSpaceBeforeComment),
         (Style, "103") => (RuleGroup::Preview, Ast, Optional, style::whitespace::IncorrectSpaceAroundDoubleColon),
@@ -147,6 +146,8 @@ pub fn code_to_rule(category: Category, code: &str) -> Option<(RuleGroup, Rule)>
         (Style, "232") => (RuleGroup::Preview, Ast, Default, style::keywords::KeywordHasWhitespace),
         (Style, "241") => (RuleGroup::Preview, Ast, Default, style::strings::BadQuoteString),
         (Style, "242") => (RuleGroup::Preview, Ast, Optional, style::strings::AvoidableEscapedQuote),
+        (Style, "320") => (RuleGroup::Preview, Ast, Optional, style::unused_symbol::UnusedSymbol),
+        // There are likely to be many whitespace rules at some point, reserve S1xx for them
 
         // obsolescent
         (Obsolescent, "001") => (RuleGroup::Removed, Ast, Default, obsolescent::statement_functions::StatementFunction),
