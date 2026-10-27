@@ -2086,6 +2086,145 @@ end program test
     Ok(())
 }
 
+/// Source with trailing whitespace (`~`) on lines 1-4, and an unfixable
+/// violation on lines 2 and 5
+const LINE_FILTER_FIX_SOURCE: &str = "program test~~
+  logical*4, parameter :: a = .true.~~
+  logical, parameter :: b = .true.~~
+  logical, parameter :: c = .true.~~
+  logical*4, parameter :: d = .true.
+end program test
+";
+
+fn line_filter_fix_source() -> String {
+    LINE_FILTER_FIX_SOURCE.replace('~', " ")
+}
+
+/// Run `cmd` with `input` on stdin. Used instead of a snapshot because the
+/// output contains significant trailing whitespace
+fn output_with_stdin(cmd: &mut Command, input: &str) -> anyhow::Result<std::process::Output> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut child = cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child
+        .stdin
+        .take()
+        .expect("stdin is piped")
+        .write_all(input.as_bytes())?;
+    Ok(child.wait_with_output()?)
+}
+
+/// Check that `--lines` limits both fixes and diagnostics when reading from
+/// stdin, with diagnostics after a fix still mapped back to the right lines
+#[test]
+fn stdin_lines_fix() -> anyhow::Result<()> {
+    let fixture = FortitudeCheck::new()?;
+    let mut command = fixture.check_command();
+    command.args([
+        "--select=S101,PORT011",
+        "--fix",
+        "--stdin-filename=test.f90",
+        "--lines=1:2",
+        "--lines=4",
+    ]);
+    let output = output_with_stdin(&mut command, &line_filter_fix_source())?;
+
+    let expected = "program test
+  logical*4, parameter :: a = .true.
+  logical, parameter :: b = .true.~~
+  logical, parameter :: c = .true.
+  logical*4, parameter :: d = .true.
+end program test
+"
+    .replace('~', " ");
+    assert_eq!(String::from_utf8(output.stdout)?, expected);
+
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(stderr.contains("test.f90:2:11: PORT011"), "{stderr}");
+    assert!(!stderr.contains("test.f90:5:"), "{stderr}");
+    assert!(!stderr.contains("S101"), "{stderr}");
+    assert!(!output.status.success());
+
+    Ok(())
+}
+
+/// Check that `--line-filter` is applied when reading from stdin, using the
+/// filename given by `--stdin-filename`
+#[test]
+fn stdin_line_filter_fix() -> anyhow::Result<()> {
+    let cmd = FortitudeCheck::new()?;
+    let filter_arg = format!(
+        "--line-filter=[{{\"name\":{:?}, \"lines\":[[3, 4]]}}]",
+        fortitude_linter::fs::normalize_path(cmd.root().join("test.f90"))
+    );
+    let mut command = cmd.check_command();
+    command
+        .args(["--select=S101", "--fix-only", "--stdin-filename=test.f90"])
+        .arg(&filter_arg);
+    let output = output_with_stdin(&mut command, &line_filter_fix_source())?;
+
+    let expected = "program test~~
+  logical*4, parameter :: a = .true.~~
+  logical, parameter :: b = .true.
+  logical, parameter :: c = .true.
+  logical*4, parameter :: d = .true.
+end program test
+"
+    .replace('~', " ");
+    assert_eq!(String::from_utf8(output.stdout)?, expected);
+    assert!(output.status.success());
+
+    Ok(())
+}
+
+/// Check that a stdin file not mentioned in `--line-filter` is passed through
+/// unchanged
+#[test]
+fn stdin_line_filter_other_file() -> anyhow::Result<()> {
+    let fixture = FortitudeCheck::new()?;
+    let mut command = fixture.check_command();
+    command.args([
+        "--select=S101",
+        "--fix",
+        "--stdin-filename=test.f90",
+        r#"--line-filter=[{"name": "other.f90"}]"#,
+    ]);
+    let output = output_with_stdin(&mut command, &line_filter_fix_source())?;
+
+    assert_eq!(String::from_utf8(output.stdout)?, line_filter_fix_source());
+    assert!(output.status.success());
+
+    Ok(())
+}
+
+/// Check that `--fix` only applies fixes within `--line-filter` for files on disk
+#[test]
+fn line_filter_fix() -> anyhow::Result<()> {
+    let cmd = FortitudeCheck::with_file("test.f90", &line_filter_fix_source())?;
+    let test_file = std::fs::canonicalize(cmd.root().join("test.f90"))?;
+    let filter_arg = format!("--line-filter=[{{\"name\":{test_file:?}, \"lines\":[[1, 2]]}}]",);
+    cmd.check_command()
+        .args(["--select=S101", "--fix", "test.f90", &filter_arg])
+        .output()?;
+
+    let expected = "program test
+  logical*4, parameter :: a = .true.
+  logical, parameter :: b = .true.~~
+  logical, parameter :: c = .true.~~
+  logical*4, parameter :: d = .true.
+end program test
+"
+    .replace('~', " ");
+    assert_eq!(std::fs::read_to_string(test_file)?, expected);
+
+    Ok(())
+}
+
 /// Helper for a tests in a git repo with commit changes
 fn set_up_git_repo<P: AsRef<Path>>(
     tempdir: P,

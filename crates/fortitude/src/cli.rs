@@ -19,7 +19,7 @@ use std::{fmt::Write as _, ops::Deref};
 
 use fortitude_linter::{
     fs::{FilePattern, GlobPath},
-    line_filter::{Filter, FilterMap},
+    line_filter::{Filter, FilterMap, LineRange},
     logging::LogLevel,
     rule_selector::{RuleSelector, clap_completion::RuleSelectorParser, collect_per_file_ignores},
     settings::{
@@ -428,6 +428,20 @@ pub struct CheckCommand {
     )]
     pub git_since: Option<String>,
 
+    /// Only report and fix violations within this range of lines of the file
+    /// read from stdin. The format is `START:END` (1-based, inclusive) or a
+    /// single `LINE`. Can be repeated. Requires `--stdin-filename`.
+    #[arg(
+        long,
+        help_heading = "File selection",
+        value_name = "START:END",
+        requires = "stdin_filename",
+        conflicts_with = "line_filter",
+        conflicts_with = "git_staged",
+        conflicts_with = "git_since"
+    )]
+    pub lines: Vec<LineRange>,
+
     // Options for individual rules
     /// Set the maximum allowable line length.
     #[arg(long, help_heading = "Per-Rule Options")]
@@ -471,6 +485,7 @@ pub struct CheckArguments {
     pub git_since: Option<String>,
     pub ignore_allow_comments: IgnoreAllowComments,
     pub line_filter: Option<FilterMap>,
+    pub lines: Vec<LineRange>,
     pub output_file: Option<PathBuf>,
     pub show_files: bool,
     pub show_settings: bool,
@@ -593,6 +608,7 @@ impl CheckCommand {
             git_staged: self.git_staged,
             git_since: self.git_since,
             line_filter: self.line_filter.map(FilterMap::new),
+            lines: self.lines,
             ignore_allow_comments: self.ignore_allow_comments.into(),
             output_file: self.output_file,
             show_files: self.show_files,

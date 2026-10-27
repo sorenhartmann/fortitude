@@ -263,6 +263,22 @@ command line flags you can use:
 There is also `--line-filter` for advanced users, which lets you specify exactly
 which lines of which files to run on.
 
+When reading from stdin, `--lines START:END` (repeatable) restricts Fortitude to
+those lines of the file named by `--stdin-filename`. `--line-filter`,
+`--git-staged` and `--git-since` also apply to stdin, using the filename given by
+`--stdin-filename`.
+
+All of these flags also restrict `--fix`: only fixes that lie entirely within the
+selected lines are applied. For example, to have [`jj fix`](https://jj-vcs.github.io/jj/latest/cli-reference/#jj-fix)
+only fix lines you've changed:
+
+```toml
+[fix.tools.fortitude]
+command = ["fortitude", "check", "--fix-only", "--silent", "--stdin-filename=$path"]
+line-range-args = ["--lines=$first:$last"]
+patterns = ["glob:'**/*.f90'"]
+```
+
 These flags work with the passed set of paths, so it's possible to filter to
 files that have been staged in a given directory, for example:
 

@@ -41,6 +41,7 @@ pub(crate) fn fix_all(query: &DocumentQuery, encoding: PositionEncoding) -> crat
     let FixerResult { transformed, .. } = fortitude_linter::check_and_fix_file(
         &document_path,
         &file,
+        None,
         &settings.check,
         fortitude_linter::settings::IgnoreAllowComments::Disabled,
     )?;

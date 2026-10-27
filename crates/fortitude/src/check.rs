@@ -170,6 +170,17 @@ pub fn check(args: CheckCommand, global_options: GlobalConfigArgs) -> Result<Exi
             &commit,
             &file_configuration.settings.file_resolver.project_root,
         )?)
+    } else if !cli.lines.is_empty()
+        && let Some(stdin_filename) = &stdin_filename
+    {
+        // Normalise the same way as `check_stdin` does when looking up the filter
+        Some(FilterMap::from_lines(
+            fs::fully_normalize_path_to(
+                fs::normalize_path(stdin_filename),
+                &file_configuration.settings.file_resolver.project_root,
+            ),
+            cli.lines,
+        ))
     } else {
         cli.line_filter
     };
@@ -230,6 +241,7 @@ pub fn check(args: CheckCommand, global_options: GlobalConfigArgs) -> Result<Exi
     let results = if is_stdin {
         check_stdin(
             stdin_filename.map(fs::normalize_path).as_deref(),
+            &line_filter,
             &file_configuration.settings,
             fix_mode,
             cli.ignore_allow_comments,
@@ -502,6 +514,7 @@ pub fn check_file(
 
 fn check_stdin(
     filename: Option<&Path>,
+    file_filter: &Option<FilterMap>,
     settings: &Settings,
     fix_mode: FixMode,
     ignore_allow_comments: settings::IgnoreAllowComments,
@@ -511,8 +524,29 @@ fn check_stdin(
     let path = filename.unwrap_or_else(|| Path::new("-"));
     let source_file = SourceFileBuilder::new(path.to_str().unwrap_or("-"), stdin.as_str()).finish();
 
+    // If there's a filter but it doesn't mention this file, nothing should be
+    // reported or fixed
+    let line_filter = file_filter.as_ref().map(|f| {
+        let path = fs::fully_normalize_path_to(path, &settings.file_resolver.project_root);
+        f.get(path, &source_file).unwrap_or_else(FilterSet::empty)
+    });
+    let check_only = || -> Result<_> {
+        let mut result =
+            check_only_file(path, &source_file, &settings.check, ignore_allow_comments)?;
+        if let Some(line_filter) = &line_filter {
+            line_filter.retain_diagnostics(&mut result);
+        }
+        Ok(result)
+    };
+
     let (messages, fixed) = if matches!(fix_mode, FixMode::Apply | FixMode::Diff) {
-        match check_and_fix_file(path, &source_file, &settings.check, ignore_allow_comments) {
+        match check_and_fix_file(
+            path,
+            &source_file,
+            line_filter.as_ref(),
+            &settings.check,
+            ignore_allow_comments,
+        ) {
             Ok(FixerResult {
                 result,
                 transformed,
@@ -541,8 +575,7 @@ fn check_stdin(
             }
             _ => {
                 // Failed to fix, so just lint the original source
-                let result =
-                    check_only_file(path, &source_file, &settings.check, ignore_allow_comments)?;
+                let result = check_only()?;
 
                 // Write the input to stdout anyway.
                 // Necessary in case the user is using stdin fix mode to overwrite the current
@@ -558,7 +591,7 @@ fn check_stdin(
             }
         }
     } else {
-        let result = check_only_file(path, &source_file, &settings.check, ignore_allow_comments)?;
+        let result = check_only()?;
         let fixed = FxHashMap::default();
         (result, fixed)
     };

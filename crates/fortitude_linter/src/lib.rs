@@ -190,13 +190,18 @@ pub fn check_file(
     fix_mode: FixMode,
     ignore_allow_comments: settings::IgnoreAllowComments,
 ) -> anyhow::Result<Diagnostics> {
-    let (mut messages, fixed) = if matches!(fix_mode, FixMode::Apply | FixMode::Diff) {
+    let (messages, fixed) = if matches!(fix_mode, FixMode::Apply | FixMode::Diff) {
         if let Ok(FixerResult {
             result,
             transformed,
             fixed,
-        }) = check_and_fix_file(path, file, settings, ignore_allow_comments)
-        {
+        }) = check_and_fix_file(
+            path,
+            file,
+            line_filter.as_ref(),
+            settings,
+            ignore_allow_comments,
+        ) {
             if !fixed.is_empty() {
                 match fix_mode {
                     FixMode::Apply => {
@@ -217,27 +222,21 @@ pub fn check_file(
             (result, fixed)
         } else {
             // Failed to fix, so just lint the original source
-            let result = check_only_file(path, file, settings, ignore_allow_comments)?;
+            let mut result = check_only_file(path, file, settings, ignore_allow_comments)?;
+            if let Some(line_filter) = line_filter {
+                line_filter.retain_diagnostics(&mut result);
+            }
             let fixed = FxHashMap::default();
             (result, fixed)
         }
     } else {
-        let result = check_only_file(path, file, settings, ignore_allow_comments)?;
+        let mut result = check_only_file(path, file, settings, ignore_allow_comments)?;
+        if let Some(line_filter) = line_filter {
+            line_filter.retain_diagnostics(&mut result);
+        }
         let fixed = FxHashMap::default();
         (result, fixed)
     };
-
-    if let Some(line_filter) = line_filter {
-        messages.retain(|message| {
-            line_filter.contains(
-                message
-                    .primary_span()
-                    .and_then(|span| span.range())
-                    .map(|range| range.start())
-                    .unwrap_or_default(),
-            )
-        });
-    }
 
     let blocking_fixes = fixed
         .keys()
@@ -524,14 +523,21 @@ pub struct FixerResult<'a> {
     pub fixed: FixTable,
 }
 
+/// Check a file and repeatedly apply fixes until it stabilises.
+///
+/// If `line_filter` is given, only fixes entirely within it are applied, and
+/// only diagnostics starting within it are returned. The filter is updated to
+/// follow the code as it moves between fix iterations.
 #[allow(clippy::too_many_arguments)]
 pub fn check_and_fix_file<'a>(
     path: &Path,
     file: &'a SourceFile,
+    line_filter: Option<&FilterSet>,
     settings: &CheckSettings,
     ignore_allow_comments: settings::IgnoreAllowComments,
 ) -> anyhow::Result<FixerResult<'a>> {
     let mut transformed = Cow::Borrowed(file);
+    let mut line_filter = line_filter.cloned();
 
     // Track the number of fixed errors across iterations.
     let mut fixed = FxHashMap::default();
@@ -554,7 +560,8 @@ pub fn check_and_fix_file<'a>(
         // Map row and column locations to byte slices (lazily).
         let locator = Locator::new(transformed.source_text());
 
-        let violations = check_path(path, &transformed, settings, &tree, ignore_allow_comments)?;
+        let mut violations =
+            check_path(path, &transformed, settings, &tree, ignore_allow_comments)?;
 
         if iterations == 0 {
             is_valid_syntax = !tree.root_node().has_error();
@@ -576,14 +583,19 @@ pub fn check_and_fix_file<'a>(
         if let Some(FixResult {
             code: fixed_contents,
             fixes: applied,
-            ..
+            source_map,
         }) = fix_file(
             &violations,
             &locator,
             settings.unsafe_fixes,
+            line_filter.as_ref(),
             path.to_string_lossy().as_ref(),
         ) {
             if iterations < MAX_ITERATIONS {
+                if let Some(line_filter) = &mut line_filter {
+                    line_filter.remap(&source_map);
+                }
+
                 // Count the number of fixed errors
                 for (rule, count) in applied {
                     *fixed.entry(rule).or_default() += count;
@@ -599,6 +611,10 @@ pub fn check_and_fix_file<'a>(
 
             report_failed_to_converge_error(path, transformed.source_text(), &violations);
         };
+
+        if let Some(line_filter) = &line_filter {
+            line_filter.retain_diagnostics(&mut violations);
+        }
 
         return Ok(FixerResult {
             result: violations,

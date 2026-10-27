@@ -11,6 +11,7 @@ use crate::diagnostics::{Diagnostic, Edit, Fix, IsolationLevel, SourceMap};
 use ruff_source_file::{SourceFile, SourceFileBuilder};
 use ruff_text_size::{Ranged, TextLen, TextRange, TextSize};
 
+use crate::line_filter::FilterSet;
 use crate::locator::Locator;
 use crate::registry::Rule;
 use crate::settings::UnsafeFixes;
@@ -26,15 +27,17 @@ pub struct FixResult {
     /// The number of fixes applied for each [`Rule`].
     pub fixes: FixTable,
     /// Source map for the fixed source code.
-    #[allow(dead_code)]
     pub source_map: SourceMap,
 }
 
 /// Fix errors in a file, and write the fixed source code to disk.
+///
+/// If `line_filter` is given, only fixes whose edits all lie within it are applied.
 pub fn fix_file(
     diagnostics: &[Diagnostic],
     locator: &Locator,
     unsafe_fixes: UnsafeFixes,
+    line_filter: Option<&FilterSet>,
     name: &str,
 ) -> Option<FixResult> {
     let required_applicability = unsafe_fixes.required_applicability();
@@ -42,10 +45,10 @@ pub fn fix_file(
     let mut with_fixes = diagnostics
         .iter()
         .filter(|diagnostic| {
-            diagnostic
-                .fix()
-                .as_ref()
-                .is_some_and(|fix| fix.applies(required_applicability))
+            diagnostic.fix().as_ref().is_some_and(|fix| {
+                fix.applies(required_applicability)
+                    && line_filter.is_none_or(|filter| filter.contains_fix(fix))
+            })
         })
         .peekable();
 
@@ -154,6 +157,7 @@ mod tests {
     use ruff_text_size::{Ranged, TextSize};
 
     use crate::fix::{FixResult, apply_fixes};
+    use crate::line_filter::FilterSet;
     use crate::locator::Locator;
     use crate::rules::correctness::use_statements::UseAll;
 
