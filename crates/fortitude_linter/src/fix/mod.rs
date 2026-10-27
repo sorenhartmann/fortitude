@@ -157,7 +157,6 @@ mod tests {
     use ruff_text_size::{Ranged, TextSize};
 
     use crate::fix::{FixResult, apply_fixes};
-    use crate::line_filter::FilterSet;
     use crate::locator::Locator;
     use crate::rules::correctness::use_statements::UseAll;
 

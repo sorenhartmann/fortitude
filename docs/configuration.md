@@ -364,6 +364,8 @@ File selection:
           Only run on files that have been staged in a git repository
       --git-since <COMMIT>
           Only run on files that differ between the files in the working directory of a git repository and `COMMIT`. `COMMIT` can be most things that look like a commit, for example `main`, `0f3abc`, `HEAD~`
+      --lines <START:END>
+          Only report and fix violations within this range of lines of the file read from stdin. The format is `START:END` (1-based, inclusive) or a single `LINE`. Can be repeated. Requires `--stdin-filename`
 
 Per-Rule Options:
       --line-length <LINE_LENGTH>  Set the maximum allowable line length
