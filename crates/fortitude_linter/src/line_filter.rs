@@ -214,8 +214,10 @@ impl FilterSet {
         // Markers come in (start, end) pairs, one per applied edit, in order
         let edits: Vec<_> = source_map
             .markers()
-            .chunks_exact(2)
-            .map(|pair| (&pair[0], &pair[1]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[start, end]| (start, end))
             .collect();
 
         let map_offset = |offset: TextSize, is_end: bool| -> TextSize {
